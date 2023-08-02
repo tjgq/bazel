@@ -715,12 +715,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
     List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) ev.lookup("inputs");
-    assertArtifactFilenames(
-        inputs,
-        "mytool.sh",
-        "mytool",
-        "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
-        "t.exe");
+    assertArtifactFilenames(inputs, "mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
     @SuppressWarnings("unchecked")
     RunfilesSupplier runfilesSupplier =
         CompositeRunfilesSupplier.fromSuppliers(
@@ -845,7 +840,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         ((Depset) ev.lookup("inputs")).getSet(Artifact.class).toList(),
         "mytool.sh",
         "mytool",
-        "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
+        "foo_Smytool-runfiles",
         "t.exe");
     @SuppressWarnings("unchecked")
     RunfilesSupplier runfilesSupplier =
@@ -858,11 +853,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAtLeast(
-            "mytool.sh",
-            "mytool",
-            "foo_Smytool" + OsUtils.executableExtension() + "-runfiles",
-            "t.exe");
+        .containsAtLeast("mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
   }
 
   @Test
