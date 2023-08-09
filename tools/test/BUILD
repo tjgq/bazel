@@ -116,15 +116,9 @@ filegroup(
         "extensions.bzl",
         "generate-xml.sh",
         "test-setup.sh",
-    ] + select({
-        "@bazel_tools//src/conditions:windows": [
-            "tw",
-            "xml",
-        ],
-        "//conditions:default": [
-            "dummy.sh",
-        ],
-    }),
+        "tw.exe",
+        "xml.exe",
+    ],
     visibility = ["//tools:__pkg__"],
 )
 

@@ -49,10 +49,7 @@ filegroup(
     # have short limits on Windows.
     # On other platforms this binary is a no-op.
     # See https://github.com/bazelbuild/bazel/issues/5508
-    srcs = select({
-        "@bazel_tools//src/conditions:windows": ["tw.exe"],
-        "//conditions:default": ["dummy.sh"],
-    }),
+    srcs = ["tw.exe"],
 )
 
 filegroup(
@@ -60,10 +57,7 @@ filegroup(
     # "xml" is the Windows-native test XML writer. It has a short name because
     # paths have short limits on Windows.
     # On other platforms this binary is a no-op.
-    srcs = select({
-        "@bazel_tools//src/conditions:windows": ["xml.exe"],
-        "//conditions:default": ["dummy.sh"],
-    }),
+    srcs = ["xml.exe"],
 )
 
 filegroup(
