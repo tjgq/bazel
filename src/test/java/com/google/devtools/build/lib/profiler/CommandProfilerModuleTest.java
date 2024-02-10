@@ -19,13 +19,15 @@ import static org.junit.Assume.assumeTrue;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.util.OS;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link CommandProfilerModule}. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class CommandProfilerModuleTest extends BuildIntegrationTestCase {
 
   @Override
@@ -41,12 +43,12 @@ public final class CommandProfilerModuleTest extends BuildIntegrationTestCase {
   @Test
   public void testProfilingDisabled() throws Exception {
     buildTarget("//:BUILD");
-    assertThat(outputBase.getChild("profile.jfr").exists()).isFalse();
+    assertThat(outputBase.getDirectoryEntries().stream().filter(p -> p.endsWith(".jfr"))).isEmpty();
   }
 
   @Test
-  public void testProfilingEnabled() throws Exception {
-    addOptions("--experimental_command_profile");
+  public void testProfilingEnabled(@TestParameter ProfileType profileType) throws Exception {
+    addOptions("--experimental_command_profile=" + profileType.name().toLowerCase(Locale.US));
 
     try {
       buildTarget("//:BUILD");
@@ -61,6 +63,7 @@ public final class CommandProfilerModuleTest extends BuildIntegrationTestCase {
 
     assumeTrue(OS.getCurrent() == OS.LINUX || OS.getCurrent() == OS.DARWIN);
 
-    assertThat(outputBase.getChild("profile.jfr").exists()).isTrue();
+    assertThat(
+        outputBase.getChild(profileType.name().toLowerCase(Locale.US) + ".jfr").exists()).isTrue();
   }
 }
