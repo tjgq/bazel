@@ -67,31 +67,46 @@ public class DiskCacheClient implements RemoteCacheClient {
   private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
       SpawnCheckingCacheEvent.create("disk-cache");
 
+  /**
+   * The disk cache root directory, as determined by --disk_cache.
+   */
   private final Path root;
+
+  /**
+   * The parent directory of the AC and CAS directories for the hash function.
+   */
+  private final Path fnRoot;
+
   private final ListeningExecutorService executorService;
   private final boolean verifyDownloads;
   private final DigestUtil digestUtil;
+
+  @Nullable
+  private final GarbageCollector gc;
 
   /**
    * @param verifyDownloads whether verify the digest of downloaded content are the same as the
    *     digest used to index that file.
    */
   public DiskCacheClient(
-      Path root, DigestUtil digestUtil, ExecutorService executorService, boolean verifyDownloads)
+      Path root, long maxSize, DigestUtil digestUtil, ExecutorService executorService,
+      boolean verifyDownloads)
       throws IOException {
     this.digestUtil = digestUtil;
     this.executorService = MoreExecutors.listeningDecorator(executorService);
     this.verifyDownloads = verifyDownloads;
 
-    if (isOldStyleDigestFunction(digestUtil.getDigestFunction())) {
-      this.root = root;
-    } else {
-      this.root =
-          root.getChild(
-              Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
-    }
+    this.root = root;
 
-    this.root.createDirectoryAndParents();
+    this.fnRoot =
+        isOldStyleDigestFunction(digestUtil.getDigestFunction())
+            ? root
+            : root.getChild(
+                Ascii.toLowerCase(digestUtil.getDigestFunction().getValueDescriptor().getName()));
+
+    this.fnRoot.createDirectoryAndParents();
+
+    this.gc = maxSize > 0 ? new GarbageCollector(root, maxSize) : null;
   }
 
   /**
@@ -107,9 +122,13 @@ public class DiskCacheClient implements RemoteCacheClient {
    *
    * @throws IOException if an I/O error other than a missing file occurs.
    */
-  public boolean refresh(Path path) throws IOException {
+  public boolean refresh(Path path, long size) throws IOException {
     try {
-      path.setLastModifiedTime(Instant.now().toEpochMilli());
+      long now = System.currentTimeMillis();
+      path.setLastModifiedTime(now);
+      if (gc != null) {
+        gc.updateEntry(path, now, size,  /* newlyAdded= */ false);
+      }
     } catch (FileNotFoundException e) {
       return false;
     }
@@ -132,7 +151,8 @@ public class DiskCacheClient implements RemoteCacheClient {
     return executorService.submit(
         () -> {
           Path path = toPath(digest, store);
-          if (!refresh(path)) {
+          long size = digest.getSizeBytes();
+          if (!refresh(path, size)) {
             throw new CacheNotFoundException(digest);
           }
           try (InputStream in = path.getInputStream()) {
@@ -169,7 +189,8 @@ public class DiskCacheClient implements RemoteCacheClient {
     }
 
     Path path = toPath(digest, Store.CAS);
-    if (!refresh(path)) {
+    long size = digest.getSizeBytes();
+    if (!refresh(path, size)) {
       throw new CacheNotFoundException(digest);
     }
   }
@@ -320,8 +341,9 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   private void saveFile(Digest digest, Store store, InputStream in) throws IOException {
     Path path = toPath(digest, store);
+    long size = digest.getSizeBytes();
 
-    if (refresh(path)) {
+    if (refresh(path, size)) {
       return;
     }
 
@@ -337,6 +359,9 @@ public class DiskCacheClient implements RemoteCacheClient {
       }
       path.getParentDirectory().createDirectoryAndParents();
       temp.renameTo(path);
+      if (gc != null) {
+        gc.updateEntry(path, path.getLastModifiedTime(), size, /* newlyAdded=*/ true);
+      }
     } catch (IOException e) {
       try {
         temp.delete();

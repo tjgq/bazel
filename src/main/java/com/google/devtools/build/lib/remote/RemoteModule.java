@@ -582,6 +582,7 @@ public final class RemoteModule extends BlazeModule {
               RemoteCacheClientFactory.createDiskAndRemoteClient(
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
+                  remoteOptions.diskCacheMaxSize,
                   digestUtil,
                   executorService,
                   remoteOptions.remoteVerifyDownloads,
@@ -643,6 +644,7 @@ public final class RemoteModule extends BlazeModule {
               RemoteCacheClientFactory.createDiskAndRemoteClient(
                   env.getWorkingDirectory(),
                   remoteOptions.diskCache,
+                  remoteOptions.diskCacheMaxSize,
                   digestUtil,
                   executorService,
                   remoteOptions.remoteVerifyDownloads,

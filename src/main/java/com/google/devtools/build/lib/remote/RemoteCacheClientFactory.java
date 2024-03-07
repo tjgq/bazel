@@ -44,6 +44,7 @@ public final class RemoteCacheClientFactory {
   public static RemoteCacheClient createDiskAndRemoteClient(
       Path workingDirectory,
       PathFragment diskCachePath,
+      long diskCacheMaxSize,
       DigestUtil digestUtil,
       ExecutorService executorService,
       boolean remoteVerifyDownloads,
@@ -51,7 +52,8 @@ public final class RemoteCacheClientFactory {
       throws IOException {
     DiskCacheClient diskCacheClient =
         createDiskCache(
-            workingDirectory, diskCachePath, digestUtil, executorService, remoteVerifyDownloads);
+            workingDirectory, diskCachePath, diskCacheMaxSize, digestUtil, executorService,
+            remoteVerifyDownloads);
     return new DiskAndRemoteCacheClient(diskCacheClient, remoteCacheClient);
   }
 
@@ -69,6 +71,7 @@ public final class RemoteCacheClientFactory {
       return createDiskAndHttpCache(
           workingDirectory,
           options.diskCache,
+          options.diskCacheMaxSize,
           options,
           creds,
           authAndTlsOptions,
@@ -83,6 +86,7 @@ public final class RemoteCacheClientFactory {
       return createDiskCache(
           workingDirectory,
           options.diskCache,
+          options.diskCacheMaxSize,
           digestUtil,
           executorService,
           options.remoteVerifyDownloads);
@@ -146,18 +150,21 @@ public final class RemoteCacheClientFactory {
   private static DiskCacheClient createDiskCache(
       Path workingDirectory,
       PathFragment diskCachePath,
+      long diskCacheMaxSize,
       DigestUtil digestUtil,
       ExecutorService executorService,
       boolean verifyDownloads)
       throws IOException {
     Path cacheDir =
         workingDirectory.getRelative(Preconditions.checkNotNull(diskCachePath, "diskCachePath"));
-    return new DiskCacheClient(cacheDir, digestUtil, executorService, verifyDownloads);
+    return new DiskCacheClient(cacheDir, diskCacheMaxSize, digestUtil, executorService,
+        verifyDownloads);
   }
 
   private static RemoteCacheClient createDiskAndHttpCache(
       Path workingDirectory,
       PathFragment diskCachePath,
+      long diskCacheMaxSize,
       RemoteOptions options,
       Credentials cred,
       AuthAndTLSOptions authAndTlsOptions,
@@ -169,6 +176,7 @@ public final class RemoteCacheClientFactory {
     return createDiskAndRemoteClient(
         workingDirectory,
         diskCachePath,
+        diskCacheMaxSize,
         digestUtil,
         executorService,
         options.remoteVerifyDownloads,

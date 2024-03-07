@@ -33,10 +33,11 @@ import javax.annotation.Nullable;
  * <p>Implementations must be thread-safe.
  */
 public interface RemoteCacheClient extends MissingDigestsFinder {
+
   CacheCapabilities getCacheCapabilities() throws IOException;
 
   ListenableFuture<String> getAuthority();
-
+  
   /**
    * A key in the remote action cache. The type wraps around a {@link Digest} of an {@link Action}.
    * Action keys are special in that they aren't content-addressable but refer to action results.
@@ -77,6 +78,7 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
    */
   @AutoValue
   abstract class CachedActionResult {
+
     @Nullable
     public static CachedActionResult remote(ActionResult actionResult) {
       if (actionResult == null) {
@@ -93,10 +95,14 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
       return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "disk");
     }
 
-    /** A actionResult can have a cache name ascribed to it. */
+    /**
+     * A actionResult can have a cache name ascribed to it.
+     */
     public abstract ActionResult actionResult();
 
-    /** Indicates which cache the {@link #actionResult} came from (disk/remote) */
+    /**
+     * Indicates which cache the {@link #actionResult} came from (disk/remote)
+     */
     public abstract String cacheName();
   }
 
