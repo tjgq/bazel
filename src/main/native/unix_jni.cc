@@ -1220,10 +1220,24 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_openWrite(
-    JNIEnv *env, jclass clazz, jstring path, jboolean append) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_open(
+    JNIEnv *env, jclass clazz, jstring path, jchar mode) {
   const char *path_chars = GetStringLatin1Chars(env, path);
-  int flags = (O_WRONLY | O_CREAT) | (append ? O_APPEND : O_TRUNC);
+  int flags;
+  switch (mode) {
+  case 'r':
+    flags = O_RDONLY;
+    break;
+  case 'w':
+    flags = O_WRONLY | O_CREAT | O_TRUNC;
+    break;
+  case 'a':
+    flags = O_WRONLY | O_CREAT | O_APPEND;
+    break;
+  default:
+    PostException(env, EINVAL, path_chars);
+    return -1;
+  }
   int fd;
   while ((fd = open(path_chars, flags, 0666)) == -1 && errno == EINTR) {
   }
@@ -1244,42 +1258,78 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_close(JNIEnv *env,
   }
 }
 
-extern "C" JNIEXPORT void JNICALL
+static bool checkArrayBounds(JNIEnv *env, jbyteArray data, jint off, jint len) {
+  int data_len = env->GetArrayLength(data);
+ if (off < 0 || len < 0 || off > data_len || data_len - off < len) {
+   jclass oob = env->FindClass("java/lang/IndexOutOfBoundsException");
+   if (oob != nullptr) {
+     env->ThrowNew(oob, nullptr);
+   }
+   return false;
+ }
+ return true;
+}
+
+extern "C" JNIEXPORT int JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_read(
+JNIEnv *env, jclass clazz, jint fd, jbyteArray data, jint off, jint len) {
+  if (!checkArrayBounds(env, data, off, len)) {
+    return -1;
+  }
+  jbyte *buf = static_cast<jbyte *>(malloc(len - off));
+  if (buf == nullptr) {
+    PostException(env, ENOMEM, "read");
+    return -1;
+  }
+  jbyte *p = buf;
+  while (len > 0) {
+    ssize_t res = read(fd, p, len);
+    if (res == 0) {
+      break;
+    }
+    if (res == -1) {
+      if (errno != EINTR) {
+        PostException(env, errno, "read");
+        break;
+      }
+    } else {
+      p += res;
+      len -= res;
+    }
+  }
+  int count = p-buf;
+  env->SetByteArrayRegion(data, off, count, buf);
+  free(buf);
+  return count;
+}
+
+extern "C" JNIEXPORT int JNICALL
 Java_com_google_devtools_build_lib_unix_NativePosixFiles_write(
     JNIEnv *env, jclass clazz, jint fd, jbyteArray data, jint off, jint len) {
-  int data_len = env->GetArrayLength(data);
-  if (off < 0 || len < 0 || off > data_len || data_len - off < len) {
-    jclass oob = env->FindClass("java/lang/IndexOutOfBoundsException");
-    if (oob != nullptr) {
-      env->ThrowNew(oob, nullptr);
-    }
-    return;
+  if (!checkArrayBounds(env, data, off, len)) {
+    return -1;
   }
   jbyte *buf = static_cast<jbyte *>(malloc(len));
   if (buf == nullptr) {
     PostException(env, ENOMEM, "write");
-    return;
+    return -1;
   }
   env->GetByteArrayRegion(data, off, len, buf);
-  // GetByteArrayRegion may raise ArrayIndexOutOfBoundsException if one of the
-  // indexes in the region is not valid. As we obtain the inidices from the
-  // caller, we have to check.
-  if (!env->ExceptionOccurred()) {
-    jbyte *p = buf;
-    while (len > 0) {
-      ssize_t res = write(fd, p, len);
-      if (res == -1) {
-        if (errno != EINTR) {
-          PostException(env, errno, "write");
-          break;
-        }
-      } else {
-        p += res;
-        len -= res;
+  jbyte *p = buf;
+  while (len > 0) {
+    ssize_t res = write(fd, p, len);
+    if (res == -1) {
+      if (errno != EINTR) {
+        PostException(env, errno, "write");
+        break;
       }
+    } else {
+      p += res;
+      len -= res;
     }
   }
   free(buf);
+  return len;
 }
 
 /*

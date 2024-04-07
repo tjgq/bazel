@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -494,7 +495,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(createJavaIoFile(path));
+    return new NativeFileInputStream(NativePosixFiles.open(path.toString(), 'r'));
   }
 
   protected OutputStream createFileOutputStream(PathFragment path, boolean append)
@@ -512,16 +513,64 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        return new ProfiledNativeFileOutputStream(NativePosixFiles.openWrite(name, append), name);
+        return new ProfiledNativeFileOutputStream(NativePosixFiles.open(name, append ? 'a' : 'w'),
+            name);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
-      return new NativeFileOutputStream(NativePosixFiles.openWrite(name, append));
+      return new NativeFileOutputStream(NativePosixFiles.open(name, append ? 'a' : 'w'));
+    }
+  }
+
+  private static class NativeFileInputStream extends InputStream {
+
+    private final int fd;
+    private boolean closed = false;
+
+    NativeFileInputStream(int fd) {
+      this.fd = fd;
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+      close();
+      super.finalize();
+    }
+
+    @Override
+    public synchronized void close() throws IOException {
+      if (!closed) {
+        NativePosixFiles.close(fd, this);
+        closed = true;
+      }
+    }
+
+    @Override
+    public int read() throws IOException {
+      byte[] b = new byte[1];
+      read(b, 0, 1);
+      return b[0];
+    }
+
+    @Override
+    public int read(byte[] b) throws IOException {
+      return read(b, 0, b.length);
+    }
+
+    @Override
+    @SuppressWarnings(
+        "UnsafeFinalization") // Finalizer invokes close; close and write are synchronized.
+    public synchronized int read(byte[] b, int off, int len) throws IOException {
+      if (closed) {
+        throw new IOException("attempt to read from a closed NativeFileInputStream");
+      }
+      return NativePosixFiles.read(fd, b, off, len);
     }
   }
 
   private static class NativeFileOutputStream extends OutputStream {
+
     private final int fd;
     private boolean closed = false;
 
@@ -559,7 +608,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
         "UnsafeFinalization") // Finalizer invokes close; close and write are synchronized.
     public synchronized void write(byte[] b, int off, int len) throws IOException {
       if (closed) {
-        throw new IOException("attempt to write to a closed Outputstream backed by a native file");
+        throw new IOException("attempt to write to a closed NativeFileOutputStream");
       }
       NativePosixFiles.write(fd, b, off, len);
     }

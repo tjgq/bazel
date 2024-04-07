@@ -71,6 +71,16 @@ int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
   return 0;
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_transfer(JNIEnv *env, jclass clazz, jint fd_in, jint fd_out) {
+  ssize_t ret;
+  while ((ret = copy_file_range(fd_in, nullptr, fd_out, nullptr, SIZE_MAX, 0)) > 0)
+    ;
+  if (ret < 0) {
+    PostException(env, ERRNO, "copy_file_range");
+  }
+}
+
 ssize_t portable_getxattr(const char *path, const char *name, void *value,
                           size_t size, bool *attr_not_found) {
   ssize_t result = ::getxattr(path, name, value, size);

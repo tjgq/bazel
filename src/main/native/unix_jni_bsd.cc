@@ -105,6 +105,29 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
 #endif
 }
 
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_transfer(JNIEnv *env, jclass clazz, jint fd_in, jint fd_out) {
+  // FreeBSD has a Linux-like copy_file_range API.
+  // OpenBSD doesn't seem to have a zero-copy API except for sockets.
+  // We could fork the logic here, but for now always do a manual copy.
+  char buf[4096];
+  ssize_t nread = 0;
+  while ((nread = read(fd_in, buf, sizeof(buf))) > 0) {
+    ssize_t nwritten = 0;
+    while (nwritten < nread) {
+      int n = write(fd_out, buf + nwritten, nread - nwritten);
+      if (n < 0) {
+        PostException(env, errno, "write");
+        return;
+      }
+      nwritten += n;
+    }
+  }
+  if (nread < 0) {
+    PostException(env, errno, "read");
+  }
+}
+
 int portable_push_disable_sleep() {
   // Currently not supported.
   // https://wiki.freebsd.org/SuspendResume

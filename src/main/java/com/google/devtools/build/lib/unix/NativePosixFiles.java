@@ -373,16 +373,28 @@ public final class NativePosixFiles {
   /**
    * Open a file descriptor for writing.
    *
-   * <p>This is a low level API. The caller is responsible for calling {@link close} on the returned
-   * file descriptor.
+   * <p>This is a low level API. The caller is responsible for calling {@link close} on the
+   * returned file descriptor.
    *
    * @param path file to open
-   * @param append whether to open is append mode
+   * @param mode one of 'r' (read), 'w' (write) or 'a' (append)
    */
-  public static native int openWrite(String path, boolean append) throws FileNotFoundException;
+  public static native int open(String path, char mode) throws FileNotFoundException;
 
-  /** Write a segment of data to a file descriptor. */
+  /**
+   * Reads a segment of data from a file descriptor.
+   */
+  public static native int read(int fd, byte[] data, int off, int len) throws IOException;
+
+  /**
+   * Write a segment of data to a file descriptor.
+   */
   public static native int write(int fd, byte[] data, int off, int len) throws IOException;
+
+  /**
+   * Efficiently copy all bytes from a file descriptor into another.
+   */
+  public static native void transfer(int inFd, int outFd) throws IOException;
 
   /**
    * Close a file descriptor. Additionally, accept and ignore an object; this can be used to keep a

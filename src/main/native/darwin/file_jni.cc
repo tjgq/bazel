@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <copyfile.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -111,6 +112,14 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
   ssize_t result = getxattr(path, name, value, size, 0, XATTR_NOFOLLOW);
   *attr_not_found = (errno == ENOATTR);
   return result;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_transfer(JNIEnv *env, jclass clazz, jint fd_in, jint fd_out) {
+  int ret = fcopyfile(fd_in, fd_out, nullptr, COPYFILE_DATA);
+  if (ret < 0) {
+    PostException(env, errno, "fcopyfile");
+  }
 }
 
 }  // namespace blaze_jni

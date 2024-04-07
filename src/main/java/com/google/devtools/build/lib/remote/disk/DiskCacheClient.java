@@ -136,7 +136,7 @@ public class DiskCacheClient implements RemoteCacheClient {
             throw new CacheNotFoundException(digest);
           }
           try (InputStream in = path.getInputStream()) {
-            ByteStreams.copy(in, out);
+            in.transferTo(out);
           }
           return null;
         });
@@ -330,7 +330,7 @@ public class DiskCacheClient implements RemoteCacheClient {
 
     try {
       try (OutputStream out = temp.getOutputStream()) {
-        ByteStreams.copy(in, out);
+        in.transferTo(out);
         // Fsync temp before we rename it to avoid data loss in the case of machine
         // crashes (the OS may reorder the writes and the rename).
         if (out instanceof FileOutputStream fos) {
