@@ -56,6 +56,7 @@ import com.google.protobuf.ByteString;
 import io.netty.util.AbstractReferenceCounted;
 import io.reactivex.rxjava3.core.Completable;
 import java.io.ByteArrayOutputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -423,7 +424,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     }
 
     reporter.started();
-    OutputStream out = new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
+    OutputStream out = path.getOutputStream(); // new ReportingOutputStream(new LazyFileOutputStream(path), reporter);
 
     ListenableFuture<Void> f = cacheProtocol.downloadBlob(context, digest, out);
     f.addListener(

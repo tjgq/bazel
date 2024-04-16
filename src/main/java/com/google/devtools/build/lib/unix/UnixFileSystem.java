@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -560,7 +561,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected OutputStream createFileOutputStream(PathFragment path, boolean append, boolean internal)
       throws FileNotFoundException {
-    final String name = path.toString();
+    return new FileOutputStream(createJavaIoFile(path));
+    /*final String name = path.toString();
     if (!internal
         && profiler.isActive()
         && (profiler.isProfiling(ProfilerTask.VFS_WRITE)
@@ -580,7 +582,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
       } finally {
         Blocker.end(comp);
       }
-    }
+    }*/
   }
 
   private static class NativeFileOutputStream extends OutputStream {

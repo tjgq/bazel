@@ -39,14 +39,18 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
+import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistryLite;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -136,7 +140,11 @@ public class DiskCacheClient implements RemoteCacheClient {
             throw new CacheNotFoundException(digest);
           }
           try (InputStream in = path.getInputStream()) {
-            ByteStreams.copy(in, out);
+            if ((in instanceof FileInputStream fis) && (out instanceof FileOutputStream fos)) {
+              NativePosixFiles.transfer(getFD(fis.getFD()), getFD(fos.getFD()));
+            } else {
+              in.transferTo(out);
+            }
           }
           return null;
         });
@@ -146,7 +154,7 @@ public class DiskCacheClient implements RemoteCacheClient {
   public ListenableFuture<Void> downloadBlob(
       RemoteActionExecutionContext context, Digest digest, OutputStream out) {
     @Nullable
-    DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
+    DigestOutputStream digestOut = null; // verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
         download(digest, digestOut != null ? digestOut : out, Store.CAS),
         (v) -> {
@@ -330,7 +338,11 @@ public class DiskCacheClient implements RemoteCacheClient {
 
     try {
       try (OutputStream out = temp.getOutputStream()) {
-        ByteStreams.copy(in, out);
+        if ((in instanceof FileInputStream fis) && (out instanceof FileOutputStream fos)) {
+          NativePosixFiles.transfer(getFD(fis.getFD()), getFD(fos.getFD()));
+        } else {
+          in.transferTo(out);
+        }
         // Fsync temp before we rename it to avoid data loss in the case of machine
         // crashes (the OS may reorder the writes and the rename).
         if (out instanceof FileOutputStream fos) {
@@ -347,5 +359,18 @@ public class DiskCacheClient implements RemoteCacheClient {
       }
       throw e;
     }
+  }
+
+  private int getFD(FileDescriptor fileDescriptor) {
+    int fd;
+    try {
+      Field fdField = FileDescriptor.class.getDeclaredField("fd");
+      fdField.setAccessible(true);
+      fd = (int) fdField.get(fileDescriptor);
+      fdField.setAccessible(false);
+    } catch (NoSuchFieldException | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+    return fd;
   }
 }

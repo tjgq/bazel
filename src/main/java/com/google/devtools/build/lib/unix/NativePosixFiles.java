@@ -387,8 +387,12 @@ public final class NativePosixFiles {
    */
   public static native int openWrite(String path, boolean append) throws FileNotFoundException;
 
-  /** Write a segment of data to a file descriptor. */
+  /**
+   * Write a segment of data to a file descriptor.
+   */
   public static native int write(int fd, byte[] data, int off, int len) throws IOException;
+
+  public static native void transfer(int inFd, int outFd) throws IOException;
 
   /**
    * Close a file descriptor. Additionally, accept and ignore an object; this can be used to keep a
