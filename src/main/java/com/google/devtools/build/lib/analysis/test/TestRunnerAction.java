@@ -402,6 +402,11 @@ public class TestRunnerAction extends AbstractAction
   // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
   public ImmutableMultimap<String, Path> getTestOutputsMapping(
       ArtifactPathResolver resolver, Path execRoot) {
+    // TODO(tjgq): The existence checks below will incorrectly return false if the test action was
+    // reconstructed from the action cache, as we don't populate the output filesystem on an action
+    // cache hit. This is difficult to fix because some of the files below are produced by test
+    // spawns, but not declared as action outputs, and only the latter are stored in the action
+    // cache.
     ImmutableMultimap.Builder<String, Path> builder = ImmutableMultimap.builder();
     if (resolver.toPath(getTestLog()).exists()) {
       builder.put(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog()));
